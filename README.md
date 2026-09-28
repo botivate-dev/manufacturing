@@ -24,6 +24,7 @@ alert, activity label, and process update in the UI carries a `basis` field
 belongs to.
 
 ### Real AI
+
 - **Person / object detection** — Ultralytics YOLOv8n (`models/yolov8n.pt`),
   a genuine pretrained COCO detector. Verified during development to
   correctly detect and box real people in real photos/video.
@@ -38,6 +39,7 @@ belongs to.
   a result.
 
 ### Rule-Based Logic
+
 - **Tracking** — a lightweight custom IOU tracker (`app/vision/tracking.py`),
   one instance per camera, assigns stable "Worker 001/002/…" IDs across
   frames. (Not Ultralytics' built-in ByteTrack/BoT-SORT `persist=True` mode —
@@ -55,7 +57,7 @@ belongs to.
   alerting**, **process-deviation detection**, and the **Rule Engine** itself
   are all deterministic, configurable logic (`config.yaml`, the `rules`
   table).
-- **Process-step progression** — because per-step *action recognition* would
+- **Process-step progression** — because per-step _action recognition_ would
   require a custom-trained video model (explicitly out of scope, see §1
   "Not implemented" below), step advancement is a transparent **time-based
   heuristic**: while a worker is `WORKING` inside a zone tied to a process,
@@ -64,6 +66,7 @@ belongs to.
   it appears and is never presented as genuine per-step vision detection.
 
 ### Simulated Demo Features
+
 - **Synthetic camera fallback** — if a configured camera source (webcam,
   RTSP, mobile URL, file) cannot be opened, the system generates a
   procedurally-drawn video feed (moving rectangle "worker") so the dashboard
@@ -80,6 +83,7 @@ belongs to.
   `"simulated": true` and is prefixed `[SIMULATED EVENT]`.
 
 ### Not Implemented
+
 - A manufacturing-specific object detector (screws, tools, boxes,
   finished-product classes) — the base COCO model doesn't have these classes.
   The `DetectionModel` interface (`app/vision/interfaces.py`) is ready to
@@ -140,21 +144,37 @@ Then open **http://localhost:8000**. If the server is already running, do not
 start a second copy; reuse that URL or stop the existing process first.
 
 On first run the app automatically:
+
 1. Creates `data/novatech.db` (SQLite) and all tables
 2. Seeds the demo company, 5 cameras, 8 demo workers, 17 zones, 5 processes,
    and 7 rules
 3. Starts all 5 camera worker threads (falling back to SIMULATED CAMERA for
    any source it can't open)
 
-### Deploying to Render
+### Deploying to Render with Docker
 
-This repository includes `render.yaml` for a Render Web Service.
+The root `Dockerfile` builds and starts the app; you do not need a Blueprint
+or `render.yaml` for this deployment.
 
-1. Push the project to GitHub. Keep the YOLO model files in `models/`.
-2. In Render, choose **New → Blueprint** and select the GitHub repository.
-3. Render will read `render.yaml`, install `requirements.txt`, and start the
-   FastAPI app on Render's `$PORT`.
-4. Open the generated `https://...onrender.com` URL after the first deploy.
+1. Push the project to GitHub, including the model files in `models/` and the
+   demo clips in `demo/videos/`.
+2. In Render, choose **New → Web Service**, connect the repository, and select
+   **Docker** as the runtime. Render will detect the root `Dockerfile`.
+3. Add these environment variables in the service settings:
+
+- `ADMIN_PASSWORD`: a strong password for the admin account.
+- `SESSION_SECRET`: a long, random secret used to sign sessions.
+- `DEMO_MODE`: `true` for the seeded demo data.
+- `VISION_ENABLED`: `false` on a small instance; enable only with enough
+  memory for YOLO inference.
+
+4. Create the service and open its `https://...onrender.com` URL after the
+   first deploy. The container listens on Render's `$PORT` automatically.
+
+For data that must survive redeploys, attach a persistent disk at `/app/data`.
+The SQLite database and generated alert files are stored there. Without a
+persistent disk (or an external database), Render's container filesystem is
+ephemeral.
 
 Important deployment limits:
 
@@ -162,9 +182,9 @@ Important deployment limits:
   keep the bundled demo video sources.
 - The free service has an ephemeral filesystem, so the SQLite database and
   generated alert files can be lost after redeploys or restarts. Use a paid
-  persistent disk mounted at `/opt/render/project/src/data` for a small demo,
+  persistent disk mounted at `/app/data` for a small demo,
   or move the database to PostgreSQL for a real deployment.
-- The included Render configuration sets `VISION_ENABLED=false` because the
+- The Docker image defaults to `VISION_ENABLED=false` because the
   free plan has limited memory. The dashboard still runs its simulated camera
   feeds. Set it to `true` only on a larger instance with enough memory for
   YOLO inference.
@@ -175,13 +195,13 @@ Important deployment limits:
 
 ## 4. Camera Setup
 
-| Camera | Default source | Notes |
-| --- | --- | --- |
-| CAM-001 Assembly Line A | Laptop webcam (`0`) | Falls back to simulation if unavailable |
-| CAM-002 Assembly Line B | `demo/videos/cam2_assembly_b.mp4` | Demo video |
-| CAM-003 Quality Inspection | `demo/videos/cam3_quality.mp4` | Demo video |
-| CAM-004 Packaging | `demo/videos/cam4_packaging.mp4` | Demo video |
-| CAM-005 Warehouse | `demo/videos/cam5_warehouse.mp4` | Demo video |
+| Camera                     | Default source                    | Notes                                   |
+| -------------------------- | --------------------------------- | --------------------------------------- |
+| CAM-001 Assembly Line A    | Laptop webcam (`0`)               | Falls back to simulation if unavailable |
+| CAM-002 Assembly Line B    | `demo/videos/cam2_assembly_b.mp4` | Demo video                              |
+| CAM-003 Quality Inspection | `demo/videos/cam3_quality.mp4`    | Demo video                              |
+| CAM-004 Packaging          | `demo/videos/cam4_packaging.mp4`  | Demo video                              |
+| CAM-005 Warehouse          | `demo/videos/cam5_warehouse.mp4`  | Demo video                              |
 
 **To use your laptop webcam for real detections:** just run the app - CAM-001
 defaults to source `0`.
@@ -229,7 +249,7 @@ see a bounding box, a `Worker NNN` label, and a live activity state
 - **Alert cooldowns.** A persistent condition (e.g. 5 minutes idle) raises
   one alert, not one every frame - see `AlertManager.can_fire()`.
 - **State-change-only event logging.** The event log only writes a row when
-  a worker's zone or activity state actually *changes*, not every frame.
+  a worker's zone or activity state actually _changes_, not every frame.
 
 ---
 
